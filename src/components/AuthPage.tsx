@@ -25,10 +25,10 @@ export function AuthPage() {
       const msg = err.message?.includes('Invalid login credentials')
         ? 'Email ou senha inválidos.'
         : err.message?.includes('User already registered')
-        ? 'Este email já está em uso.'
-        : err.message?.includes('Password should be at least')
-        ? 'A senha deve ter pelo menos 6 caracteres.'
-        : err.message || 'Ocorreu um erro. Tente novamente.';
+          ? 'Este email já está em uso.'
+          : err.message?.includes('Password should be at least')
+            ? 'A senha deve ter pelo menos 6 caracteres.'
+            : err.message || 'Ocorreu um erro. Tente novamente.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -57,7 +57,7 @@ export function AuthPage() {
           <div className="auth-logo-icon">
             <Zap size={28} />
           </div>
-          <h1 className="auth-title">DevPrompt</h1>
+          <h1 className="auth-title">MethaDevPrompt</h1>
         </div>
         <p className="auth-subtitle">
           {mode === 'login'
