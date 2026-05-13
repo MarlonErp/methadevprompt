@@ -1,14 +1,9 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { PromptConfig } from '../types';
 
-// Vite expõe apenas variáveis com prefixo VITE_ para o browser
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-
-if (!API_KEY) {
-  console.warn('[Gemini] VITE_GEMINI_API_KEY não encontrada. Adicione ao arquivo .env');
-}
-
-const genAI = new GoogleGenerativeAI(API_KEY);
+// NOTE: For security we no longer call the Google Generative API directly from
+// the browser. This module calls a local backend proxy at /api/gemini which
+// must be implemented server-side and authenticate using a Service Account.
+// See server/gemini-proxy.js added to the repository for an example.
 
 // gemini-1.5-flash tem cotas mais generosas no plano gratuito
 const PRIMARY_MODEL = 'gemini-1.5-flash';
@@ -78,7 +73,7 @@ async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T
 }
 
 export async function generatePrompt(config: PromptConfig): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL });
+  const modelName = PRIMARY_MODEL;
 
   const systemInstruction = `Você é um especialista em engenharia de prompts para desenvolvimento de software. 
 Sua tarefa é criar prompts otimizados e precisos para uso com modelos de IA no contexto de ${categoryDescriptions[config.category]}.
@@ -97,50 +92,52 @@ ${config.context ? `\nContexto adicional: ${config.context}` : ''}
 ${config.techStack ? `\nStack tecnológica: ${config.techStack}` : ''}`;
 
   return callWithRetry(async () => {
-    const result = await model.generateContent({
-      systemInstruction,
-      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+    const res = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: modelName, request: { systemInstruction, contents: [{ role: 'user', parts: [{ text: userMessage }] }] } }),
     });
-    return result.response.text();
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`[Gemini proxy] ${res.status} ${t}`);
+    }
+    const data = await res.json();
+    return data.generatedText;
   });
 }
 
 export async function generateTitle(description: string, prompt: string): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL });
+  const modelName = PRIMARY_MODEL;
 
   return callWithRetry(async () => {
-    const result = await model.generateContent({
-      contents: [{
-        role: 'user',
-        parts: [{
-          text: `Com base na descrição "${description}" e no prompt gerado abaixo, crie um título curto (máximo 6 palavras) em português para salvar este prompt.
-        
-Prompt: ${prompt.substring(0, 300)}...
-
-Responda APENAS com o título, sem pontuação final.`
-        }]
-      }]
+    const res = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: modelName, request: { contents: [{ role: 'user', parts: [{ text: `Com base na descrição "${description}" e no prompt gerado abaixo, crie um título curto (máximo 6 palavras) em português para salvar este prompt.\n        \nPrompt: ${prompt.substring(0, 300)}...\n\nResponda APENAS com o título, sem pontuação final.` }] }] } }),
     });
-    return result.response.text().trim();
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`[Gemini proxy] ${res.status} ${t}`);
+    }
+    const data = await res.json();
+    return data.generatedText.trim();
   });
 }
 
 export async function suggestTags(description: string, category: string): Promise<string[]> {
-  const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL });
+  const modelName = PRIMARY_MODEL;
 
   return callWithRetry(async () => {
-    const result = await model.generateContent({
-      contents: [{
-        role: 'user',
-        parts: [{
-          text: `Para o seguinte prompt de ${category}: "${description}"
-        
-Sugira de 3 a 5 tags relevantes em português (palavras-chave simples).
-Responda APENAS com as tags separadas por vírgula, sem espaços extras.
-Exemplo: react,componentes,hooks,typescript`
-        }]
-      }]
+    const res = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: modelName, request: { contents: [{ role: 'user', parts: [{ text: `Para o seguinte prompt de ${category}: "${description}"\n        \nSugira de 3 a 5 tags relevantes em português (palavras-chave simples).\nResponda APENAS com as tags separadas por vírgula, sem espaços extras.\nExemplo: react,componentes,hooks,typescript` }] }] } }),
     });
-    return result.response.text().trim().split(',').map(t => t.trim()).filter(Boolean);
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`[Gemini proxy] ${res.status} ${t}`);
+    }
+    const data = await res.json();
+    return data.generatedText.trim().split(',').map(t => t.trim()).filter(Boolean);
   });
 }
