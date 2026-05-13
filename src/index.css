@@ -198,6 +198,14 @@ body {
   border-radius: var(--radius-sm);
   padding: 10px 12px;
 }
+.auth-success {
+  color: var(--success);
+  font-size: 13px;
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
 .auth-submit-btn {
   width: 100%;
   padding: 13px;

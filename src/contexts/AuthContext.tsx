@@ -67,12 +67,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) {
+      // "Database error finding user" often means email not confirmed yet
+      if (error.message?.includes('Database error')) {
+        throw new Error('Email não confirmado. Verifique sua caixa de entrada (e spam) para confirmar o cadastro.');
+      }
+      throw error;
+    }
   };
 
   const signUpWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
+    // When email confirmation is enabled, signup succeeds but session is null
+    if (data?.user && !data.session) {
+      throw new Error('CONFIRM_EMAIL');
+    }
   };
 
   const signOut = async () => {

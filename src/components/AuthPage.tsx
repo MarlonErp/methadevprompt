@@ -10,10 +10,12 @@ export function AuthPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
     try {
       if (mode === 'login') {
@@ -22,13 +24,33 @@ export function AuthPage() {
         await signUpWithEmail(email, password);
       }
     } catch (err: any) {
-      const msg = err.message?.includes('Invalid login credentials')
-        ? 'Email ou senha inválidos.'
-        : err.message?.includes('User already registered')
-          ? 'Este email já está em uso.'
-          : err.message?.includes('Password should be at least')
-            ? 'A senha deve ter pelo menos 6 caracteres.'
-            : err.message || 'Ocorreu um erro. Tente novamente.';
+      const rawMsg = err.message || '';
+      // Signup succeeded but email confirmation is required
+      if (rawMsg === 'CONFIRM_EMAIL') {
+        setSuccess('✅ Conta criada! Verifique seu email para confirmar o cadastro.');
+        setMode('login');
+        return;
+      }
+      let msg: string;
+      if (rawMsg.includes('Database error')) {
+        msg = 'Serviço temporariamente indisponível. O banco de dados pode estar pausado — tente novamente em alguns minutos.';
+      } else if (rawMsg.includes('Email não confirmado')) {
+        msg = rawMsg;
+      } else if (rawMsg.includes('Invalid login credentials')) {
+        msg = 'Email ou senha inválidos.';
+      } else if (rawMsg.includes('User already registered')) {
+        msg = 'Este email já está em uso.';
+      } else if (rawMsg.includes('Password should be at least')) {
+        msg = 'A senha deve ter pelo menos 6 caracteres.';
+      } else if (rawMsg.includes('Email not confirmed')) {
+        msg = 'Verifique seu email para confirmar o cadastro.';
+      } else if (rawMsg.includes('Signups not allowed')) {
+        msg = 'Cadastro de novos usuários está desabilitado no momento.';
+      } else if (rawMsg.includes('rate limit') || rawMsg.includes('too many requests')) {
+        msg = 'Muitas tentativas. Aguarde um momento antes de tentar novamente.';
+      } else {
+        msg = rawMsg || 'Ocorreu um erro. Tente novamente.';
+      }
       setError(msg);
     } finally {
       setLoading(false);
@@ -114,6 +136,7 @@ export function AuthPage() {
             </div>
           </div>
 
+          {success && <p className="auth-success">{success}</p>}
           {error && <p className="auth-error">{error}</p>}
 
           <button id="auth-submit-btn" type="submit" className="auth-submit-btn" disabled={loading}>
@@ -128,7 +151,7 @@ export function AuthPage() {
           <button
             id="auth-mode-toggle"
             className="auth-switch-btn"
-            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }}
+            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setSuccess(''); }}
           >
             {mode === 'login' ? ' Cadastre-se' : ' Entrar'}
           </button>
